@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futuristic Photo Gallery</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:     #080c14;
+    --glass:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.09);
+    --cyan:   #22d3ee;
+    --violet: #8b5cf6;
+    --pink:   #ec4899;
+    --text:   #e2e8f0;
+    --muted:  #64748b;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grain overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.45;
+  }
+
+  /* ── Background orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 480px; height: 480px; background: rgba(34,211,238,0.08); top: -120px; left: -80px; animation: orbDrift 18s ease-in-out infinite alternate; }
+  .orb-2 { width: 400px; height: 400px; background: rgba(139,92,246,0.09); bottom: 0; right: -80px; animation: orbDrift 22s ease-in-out infinite alternate-reverse; }
+  .orb-3 { width: 300px; height: 300px; background: rgba(236,72,153,0.06); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: orbDrift 14s ease-in-out infinite alternate; }
+
+  @keyframes orbDrift {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(40px, 30px); }
+  }
+
+  /* ── Glass ── */
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* ── Gradient text ── */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--violet) 55%, var(--pink) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Header entrance ── */
+  .header-line {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: riseIn 0.7s ease forwards;
+  }
+  .header-line:nth-child(1) { animation-delay: 0.1s; }
+  .header-line:nth-child(2) { animation-delay: 0.3s; }
+  .header-line:nth-child(3) { animation-delay: 0.5s; }
+
+  @keyframes riseIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Filter buttons ── */
+  .filter-btn {
+    padding: 0.5rem 1.4rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s;
+    cursor: pointer;
+    color: var(--muted);
+    user-select: none;
+  }
+  .filter-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+  .filter-btn.active {
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 0 20px rgba(34,211,238,0.25);
+  }
+
+  /* ── Masonry grid ── */
+  #gallery {
+    columns: 1;
+    column-gap: 1.5rem;
+  }
+  @media (min-width: 640px)  { #gallery { columns: 2; } }
+  @media (min-width: 1024px) { #gallery { columns: 3; } }
+
+  /* ── Gallery item ── */
+  .gallery-item {
+    break-inside: avoid;
+    margin-bottom: 1.5rem;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    display: block;
+  }
+  .gallery-item.hidden-item { display: none; }
+
+  .gallery-item img {
+    width: 100%;
+    display: block;
+    transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  }
+  .gallery-item:hover img { transform: scale(1.07); }
+
+  /* Hover overlay */
+  .gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(8,12,20,0.88) 0%, rgba(8,12,20,0.1) 55%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1.25rem;
+  }
+  .gallery-item:hover .gallery-overlay { opacity: 1; }
+
+  .overlay-tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 0.35rem;
+    transform: translateY(8px);
+    transition: transform 0.35s ease 0.05s;
+  }
+  .overlay-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.15rem;
+    line-height: 1.3;
+    color: #fff;
+    transform: translateY(8px);
+    transition: transform 0.35s ease 0.1s;
+  }
+  .gallery-item:hover .overlay-tag,
+  .gallery-item:hover .overlay-title {
+    transform: translateY(0);
+  }
+
+  /* Shine sweep */
+  .gallery-item::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -75%;
+    width: 50%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.08), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+    pointer-events: none;
+  }
+  .gallery-item:hover::after { left: 125%; }
+
+  /* ── Item reveal animation ── */
+  @keyframes itemReveal {
+    from { opacity: 0; transform: translateY(22px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .item-anim {
+    animation: itemReveal 0.5s ease both;
+  }
+
+  /* ── Count badge ── */
+  #count-badge {
+    transition: opacity 0.3s;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Lightbox ── */
+  #lightbox {
+    position: fixed; inset: 0;
+    background: rgba(4,6,12,0.96);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(8px);
+  }
+  #lightbox.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  #lightbox-img {
+    max-width: min(90vw, 900px);
+    max-height: 82vh;
+    border-radius: 1rem;
+    object-fit: contain;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  #lightbox.open #lightbox-img {
+    transform: scale(1);
+    opacity: 1;
+    transition-delay: 0.05s;
+  }
+
+  /* Caption */
+  #lightbox-caption {
+    position: absolute;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: opacity 0.3s ease 0.2s;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  #lightbox.open #lightbox-caption { opacity: 1; }
+
+  /* Nav arrows */
+  .lb-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3rem; height: 3rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    z-index: 10;
+  }
+  .lb-nav:hover { background: rgba(255,255,255,0.1); color: var(--cyan); }
+  #lb-prev { left: 1.5rem; }
+  #lb-next { right: 1.5rem; }
+
+  /* Close */
+  #lb-close {
+    position: absolute;
+    top: 1.5rem; right: 1.5rem;
+    width: 2.5rem; height: 2.5rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  #lb-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+  /* Counter */
+  #lb-counter {
+    position: absolute;
+    top: 1.8rem; left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+
+  /* ── No results ── */
+  #no-results {
+    display: none;
+    text-align: center;
+    padding: 4rem 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Background orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ─── Header ─── -->
+<header class="relative z-10 pt-16 pb-8 text-center px-6">
+
+  <p class="header-line text-xs tracking-widest text-cyan-400 uppercase mb-4">
+    — Specially Curated Collection
+  </p>
+
+  <h1 class="header-line text-5xl md:text-7xl mb-4" style="font-family:'DM Serif Display',serif;">
+    <span class="gradient-text">Futuristic</span> Gallery
+  </h1>
+
+  <p class="header-line text-sm" style="color:var(--muted); max-width:380px; margin:0 auto; line-height:1.8;">
+    Explore curated visuals across Nature, People &amp; Abstract Art
+  </p>
+
+</header>
+
+<!-- ─── Filters + count ─── -->
+<section class="relative z-10 flex flex-col items-center gap-4 mb-10 px-6">
+
+  <div class="flex flex-wrap justify-center gap-3">
+    <button class="filter-btn glass active" data-filter="all">All</button>
+    <button class="filter-btn glass" data-filter="nature">🌿 Nature</button>
+    <button class="filter-btn glass" data-filter="people">👤 People</button>
+    <button class="filter-btn glass" data-filter="abstract">✦ Abstract</button>
+  </div>
+
+  <div id="count-badge"></div>
+
+</section>
+
+<!-- ─── Gallery ─── -->
+<main class="relative z-10 max-w-7xl mx-auto px-6 pb-24">
+
+  <div id="no-results">No images found for this filter.</div>
+
+  <div id="gallery">
+
+    <!-- Nature -->
+    <div class="gallery-item glass item-anim" data-category="nature" data-title="Valley Mist" style="animation-delay:0.05s;">
+      <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800" alt="Misty valley landscape" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Nature</span>
+        <span class="overlay-title">Valley Mist</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="nature" data-title="Forest Light" style="animation-delay:0.12s;">
+      <img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800" alt="Sunlit forest path" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Nature</span>
+        <span class="overlay-title">Forest Light</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="nature" data-title="Desert Dunes" style="animation-delay:0.19s;">
+      <img src="https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800" alt="Desert sand dunes" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Nature</span>
+        <span class="overlay-title">Desert Dunes</span>
+      </div>
+    </div>
+
+    <!-- People -->
+    <div class="gallery-item glass item-anim" data-category="people" data-title="Golden Hour" style="animation-delay:0.08s;">
+      <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800" alt="Woman at golden hour" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">People</span>
+        <span class="overlay-title">Golden Hour</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="people" data-title="Quiet Gaze" style="animation-delay:0.15s;">
+      <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800" alt="Man portrait" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">People</span>
+        <span class="overlay-title">Quiet Gaze</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="people" data-title="Urban Soul" style="animation-delay:0.22s;">
+      <img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800" alt="Woman in city" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">People</span>
+        <span class="overlay-title">Urban Soul</span>
+      </div>
+    </div>
+
+    <!-- Abstract -->
+    <div class="gallery-item glass item-anim" data-category="abstract" data-title="Neon Bloom" style="animation-delay:0.06s;">
+      <img src="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800" alt="Abstract neon bloom" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Abstract</span>
+        <span class="overlay-title">Neon Bloom</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="abstract" data-title="Liquid Fire" style="animation-delay:0.13s;">
+      <img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=800" alt="Abstract colourful liquid" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Abstract</span>
+        <span class="overlay-title">Liquid Fire</span>
+      </div>
+    </div>
+
+    <div class="gallery-item glass item-anim" data-category="abstract" data-title="Deep Signal" style="animation-delay:0.20s;">
+      <img src="https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800" alt="Abstract geometric signal" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="overlay-tag">Abstract</span>
+        <span class="overlay-title">Deep Signal</span>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ─── Lightbox ─── -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <button id="lb-close" aria-label="Close">✕</button>
+  <div id="lb-counter"></div>
+  <button class="lb-nav" id="lb-prev" aria-label="Previous">‹</button>
+  <img id="lightbox-img" src="" alt="">
+  <button class="lb-nav" id="lb-next" aria-label="Next">›</button>
+  <div id="lightbox-caption"></div>
+</div>
+
+
+<script>
+  /* ─── Data ─── */
+  const allItems = [...document.querySelectorAll('.gallery-item')];
+  let visibleItems = [...allItems];
+  let currentIndex  = 0;
+
+  /* ─── Count badge ─── */
+  function updateCount(filter) {
+    const n = filter === 'all' ? allItems.length
+      : allItems.filter(i => i.dataset.category === filter).length;
+    document.getElementById('count-badge').textContent = `${n} image${n !== 1 ? 's' : ''}`;
+  }
+  updateCount('all');
+
+  /* ─── Filter ─── */
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.dataset.filter;
+      updateCount(filter);
+      visibleItems = [];
+
+      let delay = 0;
+      allItems.forEach(item => {
+        const show = filter === 'all' || item.dataset.category === filter;
+        if (show) {
+          item.classList.remove('hidden-item');
+          // Re-trigger animation
+          item.classList.remove('item-anim');
+          void item.offsetWidth; // reflow
+          item.style.animationDelay = `${delay}s`;
+          item.classList.add('item-anim');
+          delay += 0.07;
+          visibleItems.push(item);
+        } else {
+          item.classList.add('hidden-item');
+        }
+      });
+
+      document.getElementById('no-results').style.display =
+        visibleItems.length === 0 ? 'block' : 'none';
+    });
+  });
+
+  /* ─── Lightbox ─── */
+  const lightbox    = document.getElementById('lightbox');
+  const lbImg       = document.getElementById('lightbox-img');
+  const lbCaption   = document.getElementById('lightbox-caption');
+  const lbCounter   = document.getElementById('lb-counter');
+
+  function openLightbox(index) {
+    currentIndex = index;
+    const item  = visibleItems[index];
+    const src   = item.querySelector('img').src;
+    const title = item.dataset.title || '';
+    const cat   = item.dataset.category || '';
+
+    lbImg.src = src;
+    lbImg.alt = title;
+    lbCaption.textContent = `${cat.toUpperCase()} — ${title}`;
+    lbCounter.textContent = `${index + 1} / ${visibleItems.length}`;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => { lbImg.src = ''; }, 300);
+  }
+
+  function navigate(dir) {
+    const next = (currentIndex + dir + visibleItems.length) % visibleItems.length;
+    lbImg.style.opacity = '0';
+    lbImg.style.transform = `translateX(${dir > 0 ? '24px' : '-24px'})`;
+    setTimeout(() => {
+      openLightbox(next);
+      lbImg.style.transition = 'none';
+      lbImg.style.transform  = `translateX(${dir > 0 ? '-18px' : '18px'})`;
+      lbImg.style.opacity    = '0';
+      requestAnimationFrame(() => {
+        lbImg.style.transition = 'opacity 0.25s ease, transform 0.3s ease';
+        lbImg.style.transform  = 'translateX(0)';
+        lbImg.style.opacity    = '1';
+      });
+    }, 200);
+  }
+
+  // Attach open to each item
+  allItems.forEach((item, i) => {
+    item.addEventListener('click', () => {
+      const vi = visibleItems.indexOf(item);
+      if (vi !== -1) openLightbox(vi);
+    });
+  });
+
+  document.getElementById('lb-close').addEventListener('click', closeLightbox);
+  document.getElementById('lb-prev').addEventListener('click', () => navigate(-1));
+  document.getElementById('lb-next').addEventListener('click', () => navigate(1));
+
+  // Click backdrop to close
+  lightbox.addEventListener('click', e => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (!lightbox.classList.contains('open')) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowRight')  navigate(1);
+    if (e.key === 'ArrowLeft')   navigate(-1);
+  });
+
+  // Touch swipe support
+  let touchStartX = 0;
+  lightbox.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  lightbox.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) navigate(dx < 0 ? 1 : -1);
+  });
+</script>
+</body>
+</html>
